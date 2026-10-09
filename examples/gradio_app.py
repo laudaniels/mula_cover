@@ -13,6 +13,7 @@ typing a CLI command each time. On an 8 GB GPU, keep "Low VRAM mode" on.
 import argparse
 import tempfile
 import traceback
+import zipfile
 from pathlib import Path
 
 import gradio as gr
@@ -72,11 +73,11 @@ def generate(
     save_symbolic,
 ):
     if not ref_audio:
-        return None, [], "Upload a reference audio file first."
+        return None, [], None, "Upload a reference audio file first."
     if not lyrics or not lyrics.strip():
-        return None, [], "Lyrics must not be empty."
+        return None, [], None, "Lyrics must not be empty."
     if not tags or not tags.strip():
-        return None, [], "Style tags must not be empty."
+        return None, [], None, "Style tags must not be empty."
 
     try:
         pipe = _build_pipeline(model_path, low_vram)
@@ -105,18 +106,24 @@ def generate(
         if symbolic_dir is not None and symbolic_dir.is_dir():
             midi_files = sorted(str(p) for p in symbolic_dir.iterdir())
 
-        return str(save_path), midi_files, "Done."
+        zip_path = out_dir / "mulacover_output.zip"
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(save_path, arcname=save_path.name)
+            for midi_file in midi_files:
+                zf.write(midi_file, arcname=Path(midi_file).name)
+
+        return str(save_path), midi_files, str(zip_path), "Done."
     except RuntimeError as exc:
         if "out of memory" in str(exc).lower():
-            return None, [], (
+            return None, [], None, (
                 "CUDA out of memory. Try: enable 'Low VRAM mode', lower "
                 "max_audio_length_ms, close other GPU apps, or restart this "
                 "app to release GPU memory."
             )
-        return None, [], f"Error: {exc}"
+        return None, [], None, f"Error: {exc}"
     except Exception as exc:  # surface any other failure in the UI
         traceback.print_exc()
-        return None, [], f"Error: {exc}"
+        return None, [], None, f"Error: {exc}"
 
 
 def build_demo(default_model_path: str) -> gr.Blocks:
@@ -166,6 +173,7 @@ def build_demo(default_model_path: str) -> gr.Blocks:
                 status = gr.Textbox(label="Status", interactive=False)
                 audio_out = gr.Audio(label="Generated cover", type="filepath")
                 midi_out = gr.File(label="Transcribed MIDI files", file_count="multiple")
+                zip_out = gr.File(label="Download everything (.wav + MIDI) as .zip")
 
         run_btn.click(
             generate,
@@ -173,7 +181,7 @@ def build_demo(default_model_path: str) -> gr.Blocks:
                 model_path, ref_audio, lyrics, tags, bpm, cfg_scale,
                 temperature, topk, max_len, seed, low_vram, save_symbolic,
             ],
-            outputs=[audio_out, midi_out, status],
+            outputs=[audio_out, midi_out, zip_out, status],
         )
     return demo
 
