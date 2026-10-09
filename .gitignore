@@ -10,3 +10,4 @@ downloads/
 test_outputs/
 *.wav
 *.mp3
+.claude/
