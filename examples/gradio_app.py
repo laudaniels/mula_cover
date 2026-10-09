@@ -171,7 +171,9 @@ def build_demo(default_model_path: str) -> gr.Blocks:
                 run_btn = gr.Button("Generate cover", variant="primary")
             with gr.Column():
                 status = gr.Textbox(label="Status", interactive=False)
-                audio_out = gr.Audio(label="Generated cover", type="filepath")
+                audio_out = gr.Audio(
+                    label="Generated cover (preview)", type="filepath", autoplay=True
+                )
                 midi_out = gr.File(label="Transcribed MIDI files", file_count="multiple")
                 zip_out = gr.File(label="Download everything (.wav + MIDI) as .zip")
 
