@@ -1,9 +1,11 @@
 # MuLaCover install — Ryzen 9 / RTX 4070 (8 GB VRAM)
 
 Tested combination for a desktop with an AMD Ryzen 9 CPU and an NVIDIA RTX
-4070 with 8 GB VRAM, running Ubuntu (native or WSL2). Read the "8 GB VRAM
-notes" section before your first run — the MuLaCover backbone checkpoint is
-close to this card's VRAM budget by itself.
+4070 with 8 GB VRAM, running Ubuntu (native or WSL2), using **reference-audio**
+conditioning (not MIDI input). Read the "8 GB VRAM notes" section before your
+first run — the MuLaCover backbone checkpoint is close to this card's VRAM
+budget by itself, and reference-audio mode adds a transcription step
+(YourMT3 + ChordNet) on top.
 
 ## 0. Check the GPU and driver
 
@@ -51,8 +53,21 @@ hf download Qwen/Qwen3-Embedding-0.6B --local-dir ckpt/Qwen3-Embedding-0.6B
 hf download HeartMuLa/HeartCodec-oss-20260123 --local-dir ckpt/HeartCodec-oss
 ```
 
-Skip the YourMT3/ChordNet download (see `examples/cover_song_generation.md`)
-unless you need reference-audio conditioning rather than MIDI input.
+Reference-audio conditioning (used here instead of MIDI input) additionally
+needs the YourMT3 and ChordNet checkpoints:
+
+```bash
+mkdir -p ckpt/SymbolicTranscriptor/yourmt3 ckpt/SymbolicTranscriptor/chord
+curl -fL \
+  'https://huggingface.co/spaces/mimbres/YourMT3/resolve/main/amt/logs/2024/mc13_256_g4_all_v7_mt3f_sqr_rms_moe_wf4_n8k2_silu_rope_rp_b36_nops/checkpoints/last.ckpt' \
+  -o ckpt/SymbolicTranscriptor/yourmt3/last.ckpt
+for fold in 0 1 2 3 4; do
+  chord_file="joint_chord_net_ismir_naive_v1.0_reweight(0.0,10.0)_s${fold}.best.sdict"
+  curl -fL \
+    "https://raw.githubusercontent.com/music-x-lab/ISMIR2019-Large-Vocabulary-Chord-Recognition/master/cache_data/$chord_file" \
+    -o "ckpt/SymbolicTranscriptor/chord/$chord_file"
+done
+```
 
 ## 4. 8 GB VRAM notes — read before your first run
 
@@ -98,12 +113,14 @@ If you hit an OOM, try these in order:
 source .venv/bin/activate
 env -u LD_LIBRARY_PATH PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True CUDA_VISIBLE_DEVICES=0 \
   mulacover \
-  --model_path ./ckpt \
-  --melody_midi /path/to/melody.mid --chord_midi /path/to/chord.mid \
+  --model_path ./ckpt --ref_audio /path/to/reference.mp3 \
   --lyrics ./assets/lyrics.txt --tags ./assets/tags.txt \
-  --save_path ./assets/cover.wav --device cuda:0 --seed 42 \
+  --symbolic_save_dir ./transcribed --save_path ./assets/cover.wav \
+  --device cuda:0 --seed 42 \
   --max_audio_length_ms 30000
 ```
 
-Drop `--max_audio_length_ms 30000` once this short run succeeds, to generate
-full-length audio.
+`--symbolic_save_dir` saves the transcribed melody/chord/drum MIDI so you can
+reuse them (via `--melody_midi`/`--chord_midi`) without re-running
+transcription on the same reference track. Drop `--max_audio_length_ms 30000`
+once this short run succeeds, to generate full-length audio.
