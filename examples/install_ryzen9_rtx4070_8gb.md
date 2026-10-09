@@ -124,3 +124,17 @@ env -u LD_LIBRARY_PATH PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True CUDA_VIS
 reuse them (via `--melody_midi`/`--chord_midi`) without re-running
 transcription on the same reference track. Drop `--max_audio_length_ms 30000`
 once this short run succeeds, to generate full-length audio.
+
+## 6. Optional: simple local GUI
+
+Instead of typing a CLI command each time, `examples/gradio_app.py` gives you
+a local web page to upload reference audio, fill in lyrics/tags, and play
+back the result. It wraps the same pipeline and respects the same VRAM
+trade-offs — leave "Low VRAM mode" enabled on the 4070.
+
+```bash
+python -m pip install -e '.[audio,gui]'
+python examples/gradio_app.py --model_path ./ckpt
+```
+
+Then open http://127.0.0.1:7860 in a browser.

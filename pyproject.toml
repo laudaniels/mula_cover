@@ -32,6 +32,9 @@ audio = [
     "librosa>=0.10.2,<0.12",
     "scipy>=1.10,<2",
 ]
+gui = [
+    "gradio>=4,<6",
+]
 
 [project.scripts]
 mulacover = "mulacover.cli:main"
